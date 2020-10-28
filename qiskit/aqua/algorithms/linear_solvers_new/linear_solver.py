@@ -20,7 +20,7 @@ from qiskit.circuit.library.blueprintcircuit import BlueprintCircuit
 from qiskit.aqua.algorithms import AlgorithmResult
 
 
-class LinearSystemsSolver(ABC):
+class LinearSolver(ABC):
     """An abstract class for linear system solvers in Qiskit's aqua module."""
 
     # @abstractmethod
@@ -68,7 +68,7 @@ class LinearSystemsSolver(ABC):
         raise NotImplementedError
 
 
-class LinearSystemsResult(AlgorithmResult):
+class LinearSolverResult(AlgorithmResult):
     """A base class for linear systems results.
 
     The linear systems algorithms return an object of the type ``LinearSystemsResult``
@@ -97,4 +97,4 @@ class LinearSystemsResult(AlgorithmResult):
     @staticmethod
     def from_dict(a_dict: Dict) -> 'LinearsolverResult':
         """ create new object from a dictionary """
-        return LinearSystemsResult(a_dict)
+        return LinearSolverResult(a_dict)

@@ -17,12 +17,12 @@ import warnings
 import numpy as np
 
 from qiskit.aqua.algorithms import ClassicalAlgorithm
-from .linear_systems_solver import LinearSystemsResult
+from .linear_solver import LinearSolverResult
 
 logger = logging.getLogger(__name__)
 
 
-class NumPySystemsSolver(ClassicalAlgorithm):
+class NumPyLinearSolver(ClassicalAlgorithm):
     r"""
     The Numpy LinearSystemsSolver algorithm (classical).
 
@@ -58,16 +58,16 @@ class NumPySystemsSolver(ClassicalAlgorithm):
         """
         self._solve()
 
-        ls_result = LinearSystemsResult()
+        ls_result = LinearSolverResult()
         ls_result.solution = self._ret['solution']
 
-        result = NumPyLSsolverResult()
+        result = NumPyLSolverResult()
         result.combine(ls_result)
         result.eigvals = self._ret['eigvals']
         return result
 
 
-class NumPyLSsolverResult(LinearSystemsResult):
+class NumPyLSolverResult(LinearSolverResult):
     """ Numpy LinearSystem Result."""
 
     @property
@@ -81,6 +81,6 @@ class NumPyLSsolverResult(LinearSystemsResult):
         self.data['eigvals'] = value
 
     @staticmethod
-    def from_dict(a_dict: Dict) -> 'NumPyLSsolverResult':
+    def from_dict(a_dict: Dict) -> 'NumPyLSolverResult':
         """ create new object from a dictionary """
-        return NumPyLSsolverResult(a_dict)
+        return NumPyLSolverResult(a_dict)
