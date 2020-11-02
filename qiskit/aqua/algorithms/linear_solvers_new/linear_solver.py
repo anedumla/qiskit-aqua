@@ -12,7 +12,7 @@
 
 """An abstract class for linear systems solvers in Qiskit's aqua module."""
 from abc import ABC, abstractmethod
-from typing import Dict, Union
+from typing import Dict, Union, List
 import numpy as np
 
 from qiskit.circuit.library.blueprintcircuit import BlueprintCircuit
@@ -84,17 +84,22 @@ class LinearSolverResult(AlgorithmResult):
         TODO
     """
 
+    # @property
+    # def solution(self) -> np.ndarray:
+    #     """ return solution """
+    #     return self.get('solution')
+
     @property
-    def solution(self) -> np.ndarray:
-        """ return solution """
-        return self.get('solution')
+    def value(self) -> Union[float, List[float]]:
+        """ return the computed value of the observable """
+        #TODO
 
-    @solution.setter
-    def solution(self, value: np.ndarray) -> None:
-        """ set solution """
-        self.data['solution'] = value
-
-    @staticmethod
-    def from_dict(a_dict: Dict) -> 'LinearsolverResult':
-        """ create new object from a dictionary """
-        return LinearSolverResult(a_dict)
+    # @solution.setter
+    # def solution(self, value: np.ndarray) -> None:
+    #     """ set solution """
+    #     self.data['solution'] = value
+    #
+    # @staticmethod
+    # def from_dict(a_dict: Dict) -> 'LinearsolverResult':
+    #     """ create new object from a dictionary """
+    #     return LinearSolverResult(a_dict)

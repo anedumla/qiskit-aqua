@@ -15,16 +15,17 @@
 
 """TODO: The HHL algorithm."""
 
-from typing import Optional, Union
+from typing import Optional, Union, List
 import numpy as np
 import scipy as sp
 import logging
 
 from .linear_solver import LinearSolver, LinearSolverResult
+from .observables.linear_system_observable import LinearSystemObservable
 from qiskit.circuit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit.circuit.library import PhaseEstimation
 from qiskit.providers import BaseBackend
-from qiskit.aqua.operators import MatrixTrotterEvolution
+from qiskit.aqua.operators import OperatorBase, MatrixTrotterEvolution
 from qiskit.aqua.operators.primitive_ops import MatrixOp
 from qiskit.aqua import QuantumInstance, AquaError
 from qiskit.aqua.algorithms import QuantumAlgorithm
@@ -39,12 +40,14 @@ from inverse_chebyshev import InverseChebyshev
 # TODO: need negative eigenvalues? try that algorithm figures out on its own
 class HHL(LinearSolver):
     def __init__(self,
+                 observable: Union[LinearSystemObservable, List[LinearSystemObservable]],
                  epsilon: float = 1e-2,
                  quantum_instance: Optional[Union[BaseBackend, QuantumInstance]] = None,
                  pec: QuantumCircuit = None) -> None:
 
         """
         Args:
+         observable: Information to be extracted from the solution.
          epsilon : Error tolerance.
          quantum_instance: Quantum Instance or Backend.
          pec: Custom circuit for phase estimation with neg. eigenvalues, no use case now, but maybe in future
@@ -128,7 +131,7 @@ class HHL(LinearSolver):
         if self._function_x:
             self._function_x.construct_circuit("circuit", qb)
 
-    def solve(self, matrix: Union[np.ndarray, BlueprintCircuit],
+    def solve(self, matrix: Union[np.ndarray, BlueprintCircuit, OperatorBase],
               vector: Union[np.ndarray, BlueprintCircuit]) -> 'LinearSolverResult':
         """Tries to solves the given problem using the optimizer.
 
