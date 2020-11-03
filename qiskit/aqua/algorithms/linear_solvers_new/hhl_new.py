@@ -40,14 +40,12 @@ from inverse_chebyshev import InverseChebyshev
 # TODO: need negative eigenvalues? try that algorithm figures out on its own
 class HHL(LinearSolver):
     def __init__(self,
-                 observable: Union[LinearSystemObservable, List[LinearSystemObservable]],
                  epsilon: float = 1e-2,
                  quantum_instance: Optional[Union[BaseBackend, QuantumInstance]] = None,
                  pec: QuantumCircuit = None) -> None:
 
         """
         Args:
-         observable: Information to be extracted from the solution.
          epsilon : Error tolerance.
          quantum_instance: Quantum Instance or Backend.
          pec: Custom circuit for phase estimation with neg. eigenvalues, no use case now, but maybe in future
@@ -132,7 +130,9 @@ class HHL(LinearSolver):
             self._function_x.construct_circuit("circuit", qb)
 
     def solve(self, matrix: Union[np.ndarray, BlueprintCircuit, OperatorBase],
-              vector: Union[np.ndarray, BlueprintCircuit]) -> 'LinearSolverResult':
+              vector: Union[np.ndarray, BlueprintCircuit],
+              observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
+              = None) -> 'LinearSolverResult':
         """Tries to solves the given problem using the optimizer.
 
         Runs the optimizer to try to solve the optimization problem.
@@ -140,6 +140,8 @@ class HHL(LinearSolver):
         Args:
             matrix: The matrix specifying the system, i.e. A in Ax=b.
             vector: The vector specifying the right hand side of the equation in Ax=b.
+            observable: Information to be extracted from the solution.
+                Default is `EuclideanNorm`
 
         Returns:
             The result of the linear system.
@@ -160,7 +162,7 @@ class HHL(LinearSolver):
         # TODO: check if all resize and truncate methods are necessary to have.
         #  Matrix_circuit must have _evo_time parameter, control and power methods
         if isinstance(matrix, BlueprintCircuit):
-            self._matrix_circuit = matrix(self._evo_time, matrix=matrix)
+            self._matrix_circuit = matrix(self._evo_time)
         elif isinstance(matrix, np.ndarray):
             if matrix.shape[0] != matrix.shape[1]:
                 raise ValueError("Input matrix must be square!")
