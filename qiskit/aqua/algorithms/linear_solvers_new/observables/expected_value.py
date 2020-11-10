@@ -11,11 +11,13 @@
 # that they have been altered from the originals.
 
 """The expected value of an operator applied to the vector solution to the linear systems."""
-from typing import Union
+from typing import Union, Optional
 import numpy as np
 
 from .linear_system_observable import LinearSystemObservable
-from qiskit.circuit.library.blueprintcircuit import BlueprintCircuit
+from qiskit import QuantumCircuit
+from qiskit.providers import BaseBackend, Backend
+from qiskit.aqua import QuantumInstance
 from qiskit.aqua.operators.operator_base import OperatorBase
 
 
@@ -23,13 +25,23 @@ class ExpectedValue(LinearSystemObservable):
     """A class for the expected value of an operator applied to the vector solution
     to the linear systems."""
 
-    def __init__(self, op: OperatorBase):
+    def __init__(self, op: OperatorBase, tolerance: Optional[float] = None,
+                 quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None) \
+            -> None:
         """
         Args:
             op: The operator to compute the expected value.
+            tolerance: error tolerance.
+                Defaults to ``1e-2``.
+            quantum_instance: Quantum Instance or Backend
         """
+        super().__init__(tolerance, quantum_instance)
 
-    def evaluate(self, solution: Union[np.ndarray, BlueprintCircuit]) -> float:
+        self._op = op
+        self._tolerance = tolerance if tolerance is not None else 1e-2
+        self._quantum_instance = quantum_instance
+
+    def evaluate(self, solution: Union[np.ndarray, QuantumCircuit]) -> float:
         """Evaluates the expected value of an operator applied to the vector solution
         to the linear systems.
 

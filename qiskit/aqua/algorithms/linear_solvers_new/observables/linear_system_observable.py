@@ -12,17 +12,35 @@
 
 """An abstract class for linear systems solvers in Qiskit's aqua module."""
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Optional
 import numpy as np
 
-from qiskit.circuit.library.blueprintcircuit import BlueprintCircuit
+from qiskit import QuantumCircuit
+from qiskit.providers import BaseBackend, Backend
+from qiskit.aqua import QuantumInstance
 
 
 class LinearSystemObservable(ABC):
     """An abstract class for linear system observables in Qiskit's aqua module."""
+    #TODO: move outside linear_solvers
+    #TODO: add default quantum instance
+
+    def __init__(self, tolerance: Optional[float] = None,
+                 quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None) \
+            -> None:
+        """
+        Args:
+            tolerance: error tolerance.
+                Defaults to ``1e-2``.
+            quantum_instance: Quantum Instance or Backend
+        Raises:
+            ValueError: Invalid input
+        """
+        self._tolerance = tolerance if tolerance is not None else 1e-2
+        self._quantum_instance = quantum_instance
 
     @abstractmethod
-    def evaluate(self, solution: Union[np.ndarray, BlueprintCircuit]) -> float:
+    def evaluate(self, solution: Union[np.ndarray, QuantumCircuit]) -> float:
         """Evaluates the given observable on the solution to the linear system.
 
         Args:

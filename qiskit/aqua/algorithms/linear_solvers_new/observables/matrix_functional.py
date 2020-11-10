@@ -11,23 +11,35 @@
 # that they have been altered from the originals.
 
 """The matrix functional of the vector solution to the linear systems."""
-from typing import Union
+from typing import Union, Optional
 import numpy as np
 
 from .linear_system_observable import LinearSystemObservable
-from qiskit.circuit.library.blueprintcircuit import BlueprintCircuit
+from qiskit import QuantumCircuit
+from qiskit.providers import BaseBackend, Backend
+from qiskit.aqua import QuantumInstance
 
 
 class MatrixFunctional(LinearSystemObservable):
     """A class for the matrix functional of the vector solution to the linear systems."""
 
-    def __init__(self, matrix: np.ndarray):
+    def __init__(self, matrix: np.ndarray, tolerance: Optional[float] = None,
+                 quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None) \
+            -> None:
         """
         Args:
             matrix: The matrix to compute the functional.
+            tolerance: error tolerance.
+                Defaults to ``1e-2``.
+            quantum_instance: Quantum Instance or Backend
         """
+        super().__init__(tolerance, quantum_instance)
 
-    def evaluate(self, solution: Union[np.ndarray, BlueprintCircuit]) -> float:
+        self._matrix = matrix
+        self._tolerance = tolerance if tolerance is not None else 1e-2
+        self._quantum_instance = quantum_instance
+
+    def evaluate(self, solution: Union[np.ndarray, QuantumCircuit]) -> float:
         r"""Evaluates the matrix functional of the vector solution to the linear systems.
 
         Args:

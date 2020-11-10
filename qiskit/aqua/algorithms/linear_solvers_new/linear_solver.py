@@ -12,12 +12,13 @@
 
 """An abstract class for linear systems solvers in Qiskit's aqua module."""
 from abc import ABC, abstractmethod
-from typing import Dict, Union, List
+from typing import Union, Optional, List
 import numpy as np
 
-from qiskit.circuit.library.blueprintcircuit import BlueprintCircuit
+from qiskit import QuantumCircuit
 
 from qiskit.aqua.algorithms import AlgorithmResult
+from qiskit.aqua.algorithms.linear_solvers_new.observables.linear_system_observable import LinearSystemObservable
 
 
 class LinearSolver(ABC):
@@ -45,11 +46,17 @@ class LinearSolver(ABC):
     #     """
     #     return len(self.get_compatibility_msg(problem)) == 0
 
-    # TODO: add repeat-until-success circuit option
-    # TODO: add Observable parameter
     @abstractmethod
-    def solve(self, matrix: Union[np.ndarray, BlueprintCircuit],
-              vector: Union[np.ndarray, BlueprintCircuit]) -> 'LinearSystemsResult':
+    def construct_circuit(self) -> QuantumCircuit:
+        """returns the quantum circuit that prepares the solution state"""
+        raise NotImplementedError
+
+    # TODO: add repeat-until-success circuit option
+    @abstractmethod
+    def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
+              vector: Union[np.ndarray, QuantumCircuit],
+              observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
+              = None) -> 'LinearSystemsResult':
         """Tries to solves the given problem using the optimizer.
 
         Runs the optimizer to try to solve the optimization problem.
@@ -57,6 +64,7 @@ class LinearSolver(ABC):
         Args:
             matrix: The matrix specifying the system, i.e. A in Ax=b.
             vector: The vector specifying the right hand side of the equation in Ax=b.
+            observable: Information to be extracted from the solution.
 
         Returns:
             The result of the linear system.
@@ -84,22 +92,23 @@ class LinearSolverResult(AlgorithmResult):
         TODO
     """
 
-    # @property
-    # def solution(self) -> np.ndarray:
-    #     """ return solution """
-    #     return self.get('solution')
+    def __init__(self) -> None:
+        super().__init__()
+
+        # Set the default to None, if the algorithm knows how to calculate it can override it.
+        self._euclidean_norm = None
 
     @property
-    def value(self) -> Union[float, List[float]]:
-        """ return the computed value of the observable """
-        #TODO
+    def result(self) -> Union[QuantumCircuit, np.ndarray]:
+        """ return either the circuit that prepares the solution state or a vector """
+        #TODO. Should be a repeat-until-success with parameters circuit. not supported yet.
 
-    # @solution.setter
-    # def solution(self, value: np.ndarray) -> None:
-    #     """ set solution """
-    #     self.data['solution'] = value
-    #
-    # @staticmethod
-    # def from_dict(a_dict: Dict) -> 'LinearsolverResult':
-    #     """ create new object from a dictionary """
-    #     return LinearSolverResult(a_dict)
+    @property
+    def euclidean_norm(self) -> float:
+        """return the euclidean norm if the algorithm knows how to calculate it"""
+        return self._euclidean_norm
+
+    @euclidean_norm.setter
+    def euclidean_norm(self, norm) -> None:
+        if self._euclidean_norm is None or norm != self._euclidean_norm:
+            self._euclidean_norm = norm

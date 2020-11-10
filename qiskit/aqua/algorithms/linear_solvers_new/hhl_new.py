@@ -191,7 +191,7 @@ class HHL(LinearSolver):
 
         return LinearSolverResult()
 
-
+#TODO set the euclidean_norm property
 """Test:
 State preparation with vector
 State preparation with circuit
