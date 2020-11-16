@@ -21,61 +21,6 @@ from qiskit.aqua.algorithms import AlgorithmResult
 from qiskit.aqua.algorithms.linear_solvers_new.observables.linear_system_observable import LinearSystemObservable
 
 
-class LinearSolver(ABC):
-    """An abstract class for linear system solvers in Qiskit's aqua module."""
-
-    # @abstractmethod
-    # def get_compatibility_msg(self, problem: QuadraticProgram) -> str:
-    #     """Checks whether a given problem can be solved with the optimizer implementing this method.
-    #
-    #     Args:
-    #         problem: The optimization problem to check compatibility.
-    #
-    #     Returns:
-    #         Returns the incompatibility message. If the message is empty no issues were found.
-    #     """
-    #
-    # def is_compatible(self, problem: QuadraticProgram) -> bool:
-    #     """Checks whether a given problem can be solved with the optimizer implementing this method.
-    #
-    #     Args:
-    #         problem: The optimization problem to check compatibility.
-    #
-    #     Returns:
-    #         Returns True if the problem is compatible, False otherwise.
-    #     """
-    #     return len(self.get_compatibility_msg(problem)) == 0
-
-    @abstractmethod
-    def construct_circuit(self) -> QuantumCircuit:
-        """returns the quantum circuit that prepares the solution state"""
-        raise NotImplementedError
-
-    # TODO: add repeat-until-success circuit option
-    @abstractmethod
-    def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
-              vector: Union[np.ndarray, QuantumCircuit],
-              observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
-              = None) -> 'LinearSystemsResult':
-        """Tries to solves the given problem using the optimizer.
-
-        Runs the optimizer to try to solve the optimization problem.
-
-        Args:
-            matrix: The matrix specifying the system, i.e. A in Ax=b.
-            vector: The vector specifying the right hand side of the equation in Ax=b.
-            observable: Information to be extracted from the solution.
-
-        Returns:
-            The result of the linear system.
-
-        Raises:
-            TODO
-            QiskitOptimizationError: If the problem is incompatible with the optimizer.
-        """
-        raise NotImplementedError
-
-
 class LinearSolverResult(AlgorithmResult):
     """A base class for linear systems results.
 
@@ -97,11 +42,16 @@ class LinearSolverResult(AlgorithmResult):
 
         # Set the default to None, if the algorithm knows how to calculate it can override it.
         self._euclidean_norm = None
+        self._result = None
 
     @property
     def result(self) -> Union[QuantumCircuit, np.ndarray]:
         """ return either the circuit that prepares the solution state or a vector """
-        #TODO. Should be a repeat-until-success with parameters circuit. not supported yet.
+        # TODO. Should be a repeat-until-success with parameters circuit. not supported yet.
+
+    @result.setter
+    def result(self, result) -> None:
+        return self._result
 
     @property
     def euclidean_norm(self) -> float:
@@ -112,3 +62,34 @@ class LinearSolverResult(AlgorithmResult):
     def euclidean_norm(self, norm) -> None:
         if self._euclidean_norm is None or norm != self._euclidean_norm:
             self._euclidean_norm = norm
+
+
+class LinearSolver(ABC):
+    """An abstract class for linear system solvers in Qiskit's aqua module."""
+
+    def __init__(self):
+        super().__init__()
+
+    # TODO: add repeat-until-success circuit option
+    @abstractmethod
+    def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
+              vector: Union[np.ndarray, QuantumCircuit],
+              observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
+              = None) -> LinearSolverResult:
+        """Tries to solves the given problem using the optimizer.
+
+        Runs the optimizer to try to solve the optimization problem.
+
+        Args:
+            matrix: The matrix specifying the system, i.e. A in Ax=b.
+            vector: The vector specifying the right hand side of the equation in Ax=b.
+            observable: Information to be extracted from the solution.
+
+        Returns:
+            The result of the linear system.
+
+        Raises:
+            TODO
+            QiskitOptimizationError: If the problem is incompatible with the optimizer.
+        """
+        raise NotImplementedError

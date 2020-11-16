@@ -9,78 +9,42 @@
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
-"""The Numpy LinearSystemsSolver algorithm (classical)."""
+"""The Numpy LinearSolver algorithm (classical)."""
 
-from typing import List, Union, Dict, Any
+from typing import List, Union, Optional
 import logging
-import warnings
 import numpy as np
 
-from qiskit.aqua.algorithms import ClassicalAlgorithm
-from .linear_solver import LinearSolverResult
+from .linear_solver import LinearSolverResult, LinearSolver
+from .observables.linear_system_observable import LinearSystemObservable
 
 logger = logging.getLogger(__name__)
 
 
-class NumPyLinearSolver(ClassicalAlgorithm):
-    r"""
-    The Numpy LinearSystemsSolver algorithm (classical).
+class NumPyLinearSolver(LinearSolver):
+    """
+    The Numpy LinearSolver algorithm (classical).
 
-    This linear system solver computes the eigenvalues of a complex-valued square
-    matrix :math:`A` of dimension :math:`n \times n` and the solution to the systems of linear
-    equations defined by :math:`A\overrightarrow{x}=\overrightarrow{b}` with input vector
-    :math:`\overrightarrow{b}`.
-
-    This is a classical counterpart to the :class:`HHL` algorithm.
+    This linear system solver computes the exact value of the given observable(s) or the full
+    solution vector if no observable is specified.
     """
 
-    def __init__(self, matrix: Union[List[List[float]], np.ndarray],
-                 vector: Union[List[float], np.ndarray]) -> None:
-        """
-        Args:
-            matrix: The input matrix of linear system of equations
-            vector: The input vector of linear system of equations
-        """
+    def __init__(self) -> None:
         super().__init__()
-        self._matrix = matrix
-        self._vector = vector
-        self._ret = {}  # type: Dict[str, Any]
+        self._solution = LinearSolverResult()
 
-    def _solve(self) -> None:
-        self._ret['eigvals'] = np.linalg.eig(self._matrix)[0]
-        self._ret['solution'] = list(np.linalg.solve(self._matrix, self._vector))
-
-    def _run(self) -> 'NumPyLSsolverResult':
+    def solve(self, matrix: np.ndarray, vector: np.ndarray,
+              observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
+              = None) -> LinearSolverResult:
         """
-        Run the algorithm to compute eigenvalues and solution.
+        solve the system and compute the observable(s)
         Returns:
-            result object
+            LinearSolverResult
         """
-        self._solve()
-
-        ls_result = LinearSolverResult()
-        ls_result.solution = self._ret['solution']
-
-        result = NumPyLSolverResult()
-        result.combine(ls_result)
-        result.eigvals = self._ret['eigvals']
-        return result
-
-
-class NumPyLSolverResult(LinearSolverResult):
-    """ Numpy LinearSystem Result."""
-
-    @property
-    def eigvals(self) -> np.ndarray:
-        """ return eigvals """
-        return self.get('eigvals')
-
-    @eigvals.setter
-    def eigvals(self, value: np.ndarray) -> None:
-        """ set eigvals """
-        self.data['eigvals'] = value
-
-    @staticmethod
-    def from_dict(a_dict: Dict) -> 'NumPyLSolverResult':
-        """ create new object from a dictionary """
-        return NumPyLSolverResult(a_dict)
+        solution_vector = np.linalg.solve(matrix, vector)
+        if observable is not None:
+            self._solution.result = observable.evaluate(solution_vector)
+        else:
+            self._solution.result = solution_vector
+        self._solution.euclidean_norm = np.linalg.norm(solution_vector)
+        return self._solution
