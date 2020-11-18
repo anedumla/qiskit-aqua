@@ -76,9 +76,7 @@ class LinearSolver(ABC):
               vector: Union[np.ndarray, QuantumCircuit],
               observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
               = None) -> LinearSolverResult:
-        """Tries to solves the given problem using the optimizer.
-
-        Runs the optimizer to try to solve the optimization problem.
+        """Solve the system and compute the observable(s)
 
         Args:
             matrix: The matrix specifying the system, i.e. A in Ax=b.
@@ -90,6 +88,5 @@ class LinearSolver(ABC):
 
         Raises:
             TODO
-            QiskitOptimizationError: If the problem is incompatible with the optimizer.
         """
         raise NotImplementedError

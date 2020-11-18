@@ -15,6 +15,8 @@
 import unittest
 from test.aqua import QiskitAquaTestCase
 import numpy as np
+
+from qiskit import QuantumCircuit
 from qiskit.aqua.algorithms.linear_solvers_new.numpy_linear_solver import NumPyLinearSolver
 
 
@@ -30,6 +32,12 @@ class TestNumPyLSsolver(QiskitAquaTestCase):
         algo = NumPyLinearSolver()
         solution = algo.solve(self.matrix, self.vector)
         np.testing.assert_array_almost_equal(solution.result, [1, 0])
+
+        # Test raise error
+        with self.assertRaises(ValueError):
+            algo.solve(self.matrix, QuantumCircuit(1))
+        with self.assertRaises(ValueError):
+            algo.solve(QuantumCircuit(1), self.vector)
 
 if __name__ == '__main__':
     unittest.main()
