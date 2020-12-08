@@ -32,7 +32,7 @@ class NumPyLinearSolver(LinearSolver):
 
     def __init__(self) -> None:
         super().__init__()
-        self._solution = LinearSolverResult()
+        # self._solution = LinearSolverResult()
 
     def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
               vector: Union[np.ndarray, QuantumCircuit],
@@ -58,9 +58,16 @@ class NumPyLinearSolver(LinearSolver):
             raise ValueError("The classical algorithm does not accept a QuantumCircuit as an input.")
 
         solution_vector = np.linalg.solve(matrix, vector)
+        solution = LinearSolverResult()
+        solution.state = solution_vector
         if observable is not None:
-            self._solution.result = observable.evaluate(solution_vector)
+            if isinstance(observable, list):
+                solution.observable = []
+                for obs in observable:
+                    solution.observable.append(obs.evaluate(solution_vector))
+            else:
+                solution.observable = observable.evaluate(solution_vector)
         else:
-            self._solution.result = solution_vector
-        self._solution.euclidean_norm = np.linalg.norm(solution_vector)
-        return self._solution
+            solution.observable = solution_vector
+        solution.euclidean_norm = np.linalg.norm(solution_vector)
+        return solution

@@ -37,21 +37,31 @@ class LinearSolverResult(AlgorithmResult):
         TODO
     """
 
-    def __init__(self) -> None:
+    def __init__(self, observable) -> None:
         super().__init__()
 
         # Set the default to None, if the algorithm knows how to calculate it can override it.
+        self._state = None
+        self._observable = None
         self._euclidean_norm = None
-        self._result = None
 
     @property
-    def result(self) -> Union[QuantumCircuit, np.ndarray]:
-        """ return either the circuit that prepares the solution state or a vector """
-        # TODO. Should be a repeat-until-success with parameters circuit. not supported yet.
+    def observable(self) -> Optional[Union[float, List[float]]]:
+        return self._observable
 
-    @result.setter
-    def result(self, result) -> None:
-        return self._result
+    @observable.setter
+    def observable(self, observable: Optional[Union[float, List[float]]]) -> None:
+        if self._observable is None or observable != self._observable:
+            self._observable = observable
+
+    @property
+    def state(self) -> Union[QuantumCircuit, np.ndarray]:
+        return self._state
+
+    @state.setter
+    def state(self, state: Union[QuantumCircuit, np.ndarray]) -> None:
+        if self._state is None or state != self._state:
+            self._state = state
 
     @property
     def euclidean_norm(self) -> float:

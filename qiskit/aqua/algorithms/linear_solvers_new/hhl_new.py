@@ -97,7 +97,7 @@ class HHL(LinearSolver):
 
         return num_qubits
 
-    def construct_circuit(self):
+    def construct_circuit(self) -> QuantumCircuit:
         """Construct the HHL circuit.
 
             Args:
@@ -128,11 +128,12 @@ class HHL(LinearSolver):
         # Observable gates
         if self._function_x:
             self._function_x.construct_circuit("circuit", qb)
+        return qc
 
-    def solve(self, matrix: Union[np.ndarray, BlueprintCircuit, OperatorBase],
-              vector: Union[np.ndarray, BlueprintCircuit],
+    def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
+              vector: Union[np.ndarray, QuantumCircuit],
               observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
-              = None) -> 'LinearSolverResult':
+              = None) -> LinearSolverResult:
         """Tries to solves the given problem using the optimizer.
 
         Runs the optimizer to try to solve the optimization problem.
@@ -148,20 +149,21 @@ class HHL(LinearSolver):
         """
         # TODO: better error catches, e.g. np.array type, input could be just vectors
         # State preparation circuit - default is qiskit
-        if isinstance(vector, BlueprintCircuit):
+        if isinstance(vector, QuantumCircuit):
             # TODO: check if more than one register -> one has to be named work qubits
             # TODO: polynomial, then need epsilon too
             self._nb = vector.num_qubits
+            self._vector_circuit = Custom(self._nb, circuit=vector)
         elif isinstance(vector, np.ndarray):
             self._nb = int(np.log2(len(vector)))
+            self._vector_circuit = Custom(self._nb, state_vector=vector)
         else:
-            raise ValueError("Input vector type must be either BlueprintCircuit or numpy ndarray.")
-        self._vector_circuit = Custom(self._nb, state_vector=vector)
+            raise ValueError("Input vector type must be either QuantumCircuit or numpy ndarray.")
 
         # Hamiltonian simulation circuit - default is Trotterization
         # TODO: check if all resize and truncate methods are necessary to have.
         #  Matrix_circuit must have _evo_time parameter, control and power methods
-        if isinstance(matrix, BlueprintCircuit):
+        if isinstance(matrix, QuantumCircuit):
             self._matrix_circuit = matrix(self._evo_time)
         elif isinstance(matrix, np.ndarray):
             if matrix.shape[0] != matrix.shape[1]:
@@ -182,14 +184,16 @@ class HHL(LinearSolver):
             evolved_op = MatrixTrotterEvolution(trotter_mode='suzuki', reps=2).convert(
                 (self._evo_time * MatrixOp(matrix)).exp_i())
         else:
-            raise ValueError("Input matrix type must be either BlueprintCircuit or numpy ndarray.")
+            raise ValueError("Input matrix type must be either QuantumCircuit or numpy ndarray.")
 
         # Update the number of qubits required to represent the eigenvalues
         self._nl = 3 * (int(np.log2(2 * (2 * (self._kappa ** 2) - self._epsilonR) /
                                     self._epsilonR + 1) + 1))
         self._inverse_circuit = InverseChebyshev(self._nl, self._epsilon, self._constant, self._kappa)
 
-        return LinearSolverResult()
+        solution = LinearSolverResult()
+        solution.state = self.construct_circuit()
+        return solution
 
 #TODO set the euclidean_norm property
 """Test:

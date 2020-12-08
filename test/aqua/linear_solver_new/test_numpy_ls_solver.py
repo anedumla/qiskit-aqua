@@ -31,7 +31,7 @@ class TestNumPyLSsolver(QiskitAquaTestCase):
         """ ELS test """
         algo = NumPyLinearSolver()
         solution = algo.solve(self.matrix, self.vector)
-        np.testing.assert_array_almost_equal(solution.result, [1, 0])
+        np.testing.assert_array_almost_equal(solution.observable, [1, 0])
 
         # Test raise error
         with self.assertRaises(ValueError):
