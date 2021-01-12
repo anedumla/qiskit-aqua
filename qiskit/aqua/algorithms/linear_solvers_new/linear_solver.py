@@ -36,8 +36,8 @@ class LinearSolverResult(AlgorithmResult):
     Note:
         TODO
     """
-
-    def __init__(self, observable) -> None:
+    #TODO add stuff from hhl solve
+    def __init__(self, observable: Optional[LinearSystemObservable] = None) -> None:
         super().__init__()
 
         # Set the default to None, if the algorithm knows how to calculate it can override it.
@@ -46,7 +46,7 @@ class LinearSolverResult(AlgorithmResult):
         self._euclidean_norm = None
 
     @property
-    def observable(self) -> Optional[Union[float, List[float]]]:
+    def observable(self) -> Union[float, List[float]]:
         return self._observable
 
     @observable.setter
@@ -69,7 +69,7 @@ class LinearSolverResult(AlgorithmResult):
         return self._euclidean_norm
 
     @euclidean_norm.setter
-    def euclidean_norm(self, norm) -> None:
+    def euclidean_norm(self, norm: float) -> None:
         if self._euclidean_norm is None or norm != self._euclidean_norm:
             self._euclidean_norm = norm
 

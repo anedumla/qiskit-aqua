@@ -1,6 +1,7 @@
 from typing import Optional
 
 import numpy as np
+from scipy.sparse import diags
 
 from qiskit.circuit import QuantumCircuit, QuantumRegister, AncillaRegister, Qubit
 
@@ -12,7 +13,11 @@ class Tridiagonal(QuantumCircuit):
                  trotter: Optional[int] = 1, name: str = 'tridi') -> None:
 
         qr_state = QuantumRegister(num_state_qubits)
-        super().__init__(qr_state, name=name)
+        if num_state_qubits > 1:
+            qr_ancilla = AncillaRegister(max(1, num_state_qubits - 1))
+            super().__init__(qr_state, qr_ancilla, name=name)
+        else:
+            super().__init__(qr_state, name=name)
 
         self._num_state_qubits = None
 
@@ -23,6 +28,25 @@ class Tridiagonal(QuantumCircuit):
         self._trotter = trotter
 
         self._num_state_qubits = num_state_qubits
+
+    def set_simulation_params(self, time: float, tolerance: float):
+        self.tolerance(tolerance)
+        self.time(time)
+
+    def tolerance(self, tolerance: float):
+        self._tolerance = tolerance
+
+    def time(self, time: float):
+        self._time = time
+        # Update the number of trotter steps. Max 7 for now, upper bounds too loose.
+        self._trotter = min(self._num_state_qubits + 1,int(np.ceil(np.sqrt(((time * np.abs(self._off_diag)) ** 3) / 2 /
+                                                  self._tolerance))))
+
+    def matrix(self) -> np.ndarray:
+        """Return the matrix"""
+        matrix = diags([self._off_diag, self._main_diag, self._off_diag], [-1, 0, 1],
+                       shape=(2 ** self._num_state_qubits, 2 ** self._num_state_qubits)).toarray()
+        return matrix
 
     def _cn_gate(self, qc: QuantumCircuit, controls: QuantumRegister, qr_a: AncillaRegister,
                  phi: float, ulambda: float, theta: float, tgt: Qubit):
@@ -41,7 +65,7 @@ class Tridiagonal(QuantumCircuit):
         for i in range(2, len(controls)):
             qc.ccx(controls[i], qr_a[i - 2], qr_a[i - 1])
         # Now apply the 1-controlled version of the gate with control the last ancilla bit
-        qc.cu(theta, phi, ulambda, qr_a[len(controls) - 2], tgt)
+        qc.cu(theta, phi, ulambda, 0, qr_a[len(controls) - 2], tgt)
 
         # Uncompute ancillae
         for i in range(len(controls) - 1, 1, -1):
@@ -74,7 +98,7 @@ class Tridiagonal(QuantumCircuit):
             params: Argument for the rotation.
         """
         # Gates for H2 with t
-        qc.cu(-2 * params, -np.pi / 2, np.pi / 2, q_control, qr[0])
+        qc.cu(-2 * params, 3 * np.pi / 2, np.pi / 2, 0, q_control, qr[0])
 
         # Gates for H3
         for i in range(0, self._num_state_qubits - 1):
@@ -92,9 +116,9 @@ class Tridiagonal(QuantumCircuit):
 
             # Multicontrolled x rotation
             if len(q_controls) > 1:
-                self._cn_gate(qc, q_controls, qr_anc, -np.pi / 2, np.pi / 2, -2 * params, qr[i])
+                self._cn_gate(qc, q_controls, qr_anc, 3 * np.pi / 2, np.pi / 2, -2 * params, qr[i])
             else:
-                qc.cu(-2 * params, -np.pi / 2, np.pi / 2, q_controls[0], qr[i])
+                qc.cu(-2 * params, 3 * np.pi / 2, np.pi / 2, 0, q_controls[0], qr[i])
 
             # Uncompute
             qc.x(qr[i])
@@ -104,6 +128,9 @@ class Tridiagonal(QuantumCircuit):
             qc.cx(qr[i], qr[i + 1])
 
         return qc
+
+    def inverse(self):
+        self._time = - self._time
 
     def power(self, power: int):
         """Build powers of the circuit.
@@ -115,8 +142,12 @@ class Tridiagonal(QuantumCircuit):
 
         def control():
             qr_state = QuantumRegister(self._num_state_qubits + 1)
-            qr_ancilla = AncillaRegister(max(1, self._num_state_qubits - 1))
-            qc = QuantumCircuit(qr_state, qr_ancilla)
+            if self._num_state_qubits > 1:
+                qr_ancilla = AncillaRegister(max(1, self._num_state_qubits - 1))
+                qc = QuantumCircuit(qr_state, qr_ancilla)
+            else:
+                qc = QuantumCircuit(qr_state)
+                qr_ancilla = None
             # Control will be qr[0]
             q_control = qr_state[0]
             qr = qr_state[1:]
@@ -124,17 +155,16 @@ class Tridiagonal(QuantumCircuit):
             self._build_main_controlled(qc, q_control, self._main_diag * self._time * power)
 
             # Update trotter step to compensate the error
-            trotter_new = int(np.ceil(np.sqrt(power * ((self._time * self._off_diag) ** 3) / 2 /
-                                              self._tolerance)))
+            trotter_new = int(np.ceil(np.sqrt(power) * self._trotter))
 
             # exp(iA2t/2m)
-            qc.u(self._off_diag * self._time * power / trotter_new, -np.pi / 2, np.pi / 2, qr[0])
+            qc.u(self._off_diag * self._time * power / trotter_new, 3 * np.pi / 2, np.pi / 2, qr[0])
             # for _ in range(power):
             for _ in range(0, trotter_new):
                 self._build_off_diag_controlled(qc, q_control, qr, qr_ancilla,
                                                 self._time * self._off_diag * power / trotter_new)
             # exp(-iA2t/2m)
-            qc.u(-self._off_diag * self._time * power / trotter_new, -np.pi / 2, np.pi / 2, qr[0])
+            qc.u(-self._off_diag * self._time * power / trotter_new, 3 * np.pi / 2, np.pi / 2, qr[0])
             return qc
 
         qc_raw.control = control
