@@ -15,7 +15,7 @@
 
 """TODO: The HHL algorithm."""
 
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Callable
 import numpy as np
 import logging
 
@@ -26,8 +26,11 @@ from qiskit.circuit.library import PhaseEstimation
 from qiskit.providers import BaseBackend
 from qiskit.aqua import QuantumInstance
 from qiskit.circuit.library.arithmetic.piecewise_chebyshev import PiecewiseChebyshev
-from qiskit.aqua.components.reciprocals import LookupRotation
 from qiskit.aqua.algorithms.linear_solvers_new.exact_inverse import ExactInverse
+from qiskit.opflow import Zero, One, Z, I, StateFn
+from qiskit.quantum_info.operators.base_operator import BaseOperator
+
+
 # logger = logging.getLogger(__name__)
 
 # TODO: allow a different eigenvalue circuit
@@ -70,13 +73,13 @@ class HHL(LinearSolver):
         self._evo_time = 2 * np.pi
         self._lambda_max = None
         self._lambda_min = None
-        self._kappa = 1 # Set default condition number to 1
+        self._kappa = 1  # Set default condition number to 1
 
         # Circuits for the different blocks of the algorithm
         self._vector_circuit = None
         self._matrix_circuit = None
         self._inverse_circuit = None
-        self._function_x = None
+        self._post_rotation = None
 
         # Temporary fix - TODO update how to decide if exact inverse
         self._exact_inverse = True
@@ -105,31 +108,45 @@ class HHL(LinearSolver):
             lamb_min_rep += int(binstr[i]) / (2 ** (i + 1))
         return lamb_min_rep
 
-
     def calculate_norm(self, qc: QuantumCircuit) -> float:
-        # Measure
-        backend = Aer.get_backend('statevector_simulator')
-        # Create a Quantum Program for execution
-        job = execute(qc, backend)
-        # and store the result
-        result = job.result()
-        # Remember its an...a0qn..q0
-        svect = result.get_statevector(qc)
+        # Create the Operators Zero and One
+        ZeroOp = ((I + Z) / 2)
+        OneOp = ((I - Z) / 2)
 
-        lastq = self._nb + self._na + self._nl + 2
-        nflags = 2
-        formatstr = "{0:0" + str(lastq) + "b}"
-        inv = [0] * (2 ** self._nb)
-        totalnorm = 0
-        for i in range(0, len(svect)):
-            if int(formatstr.format(i)[0]) == 0 and int(formatstr.format(i)[1]) == 1 and int(
-                    formatstr.format(i)[2]) == 1:
-                if np.linalg.norm(svect[i]) != 0.0:
-                    if formatstr.format(i)[nflags:nflags + self._na + self._nl] == '0' * (self._nl + self._na):
-                        totalnorm += np.real(svect[i] * np.conjugate(svect[i]))
-                        current = int(formatstr.format(i)[lastq - self._nb:lastq], 2)
-                        inv[current] += svect[i]
-        return np.sqrt(totalnorm * (2 ** self._nb)) / self._lambda_min
+        # Norm observable
+        observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ (I ^ self._nb)
+        norm_2 = (~StateFn(observable) @ qc).eval()
+
+        return np.real(np.sqrt(norm_2) / self._lambda_min)
+
+    # TODO allow lists
+    def calculate_observable(self, qc: QuantumCircuit,
+                             observable: Optional[Union[BaseOperator, List[BaseOperator]]] = None,
+                             post_processing: Optional[Callable[[Union[float, List[float]]],
+                                                                Union[float, List[float]]]]
+                             = None):
+        # Create the Operators Zero and One
+        ZeroOp = ((I + Z) / 2)
+        OneOp = ((I - Z) / 2)
+        # Update observable to include ancilla and rotation qubit
+        if isinstance(observable, list):
+            result = []
+            for obs in observable:
+                if obs is None:
+                    obs = I ^ self._nb
+                new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ obs
+                result.append((~StateFn(new_observable) @ qc).eval())
+        else:
+            if observable is None:
+                observable = I ^ self._nb
+            new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ observable
+            result = (~StateFn(new_observable) @ qc).eval()
+
+        # TODO if state prep is probabilistic add 1/sqrt(N) to constant
+        if post_processing is not None:
+            return post_processing(result, self._nb, self._lambda_min)
+        else:
+            return result
 
     def construct_circuit(self) -> QuantumCircuit:
         """Construct the HHL circuit.
@@ -152,7 +169,7 @@ class HHL(LinearSolver):
 
         # Create a Quantum Circuit
         # qc = QuantumCircuit(qb, ql, qa, qf, cr)
-        if self._na >0:
+        if self._na > 0:
             qc = QuantumCircuit(qb, ql, qa, qf)
         else:
             qc = QuantumCircuit(qb, ql, qf)
@@ -161,7 +178,7 @@ class HHL(LinearSolver):
         qc.append(self._vector_circuit, qb[:])
         # QPE
         phase_estimation = PhaseEstimation(self._nl, self._matrix_circuit)
-        if self._na >0:
+        if self._na > 0:
             qc.append(phase_estimation, ql[:] + qb[:] + qa[:self._matrix_circuit.num_ancillas])
         else:
             qc.append(phase_estimation, ql[:] + qb[:])
@@ -177,11 +194,13 @@ class HHL(LinearSolver):
         else:
             qc.append(phase_estimation.inverse(), ql[:] + qb[:])
         # Observable gates
-        if self._function_x:
-            self._function_x.construct_circuit("circuit", qb)
+        if self._post_rotation:
+            qc.append(self._post_rotation, qb[:])
         return qc
 
-    #TODO: neg eigenvalues, general matrix, observable:List[BaseOperator],update notebook
+    # TODO: neg eigenvalues, general matrix, observable:List[BaseOperator],update notebook
+    # TODO: two signatures, one for the observable as a (List of) LinearSystemObservable(s),
+    #the other as it is now
     """
     solve(matrix,vector,
           observable:Optional[Union[BaseOperator,List[BaseOperator]]],
@@ -190,10 +209,15 @@ class HHL(LinearSolver):
     post_rotation: circuit, can contain none
         if none->
     """
+
     def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
               vector: Union[np.ndarray, QuantumCircuit],
-              observable: Optional[Union[LinearSystemObservable, List[LinearSystemObservable]]]
-              = None) -> LinearSolverResult:
+              observable: Optional[Union[LinearSystemObservable, BaseOperator,
+                                         List[BaseOperator]]] = None,
+              post_rotation: Optional[Union[QuantumCircuit, List[QuantumCircuit]]] = None,
+              post_processing: Optional[Callable[[Union[float, List[float]]],
+                                                 Union[float, List[float]]]] = None) \
+            -> LinearSolverResult:
         """Tries to solves the given problem using the optimizer.
 
         Runs the optimizer to try to solve the optimization problem.
@@ -203,6 +227,8 @@ class HHL(LinearSolver):
             vector: The vector specifying the right hand side of the equation in Ax=b.
             observable: Information to be extracted from the solution.
                 Default is `EuclideanNorm`
+            post_rotation: Circuit to be applied to the solution to extract information.
+            post_processing: Function to compute the value of the observable.
 
         Returns:
             The result of the linear system.
@@ -246,14 +272,13 @@ class HHL(LinearSolver):
         else:
             raise ValueError("Input matrix type must be either QuantumCircuit or numpy ndarray.")
 
-
         self._lambda_max = max(np.abs(np.linalg.eigvals(matrix_array)))
         self._lambda_min = min(np.abs(np.linalg.eigvals(matrix_array)))
         self._kappa = np.linalg.cond(matrix_array)
         # Update the number of qubits required to represent the eigenvalues
         # self._nl = min(self._nb + 1, 3 * (int(np.log2(2 * (2 * (self._kappa ** 2) - self._epsilonR) /
         #                                               self._epsilonR + 1) + 1)))
-        self._nl = max(self._nb +1, int(np.log2(self._lambda_max/self._lambda_min))+1)
+        self._nl = max(self._nb + 1, int(np.log2(self._lambda_max / self._lambda_min)) + 1)
 
         # Constant from the representation of eigenvalues
         delta = self.get_delta(self._nl, self._lambda_min, self._lambda_max)
@@ -297,12 +322,22 @@ class HHL(LinearSolver):
             self._inverse_circuit._build()
             self._na = max(self._matrix_circuit.num_ancillas, inverse_circuit.num_ancillas)
 
+        if observable is not None and isinstance(observable, LinearSystemObservable):
+            self._post_rotation = observable.post_rotation(self._nb)
+            post_processing = observable.post_processing
+            observable = observable.observable(self._nb)
+        else:
+            self._post_rotation = post_rotation
+
         solution = LinearSolverResult()
         solution.state = self.construct_circuit()
         solution.euclidean_norm = self.calculate_norm(solution.state)
+        # The post-rotating gates have already been applied
+        solution.observable = self.calculate_observable(solution.state, observable, post_processing)
         return solution
 
-#TODO set the euclidean_norm property
+
+# TODO set the euclidean_norm property
 """Test:
 State preparation with vector
 State preparation with circuit
