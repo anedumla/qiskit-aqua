@@ -25,6 +25,7 @@ class LinearSystemObservable(ABC):
     """An abstract class for linear system observables in Qiskit's aqua module."""
     #TODO: move outside linear_solvers
     #TODO: add default quantum instance
+    #TODO: add classical method from numpy array
 
     def __init__(self, tolerance: Optional[float] = None,
                  quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None) \
@@ -80,6 +81,21 @@ class LinearSystemObservable(ABC):
             solution: The probability calculated from the circuit and the observable.
             num_qubits: The number of qubits where the observable was applied.
             constant: If known, scaling of the solution.
+
+        Returns:
+            The value of the observable.
+
+        Raises:
+            TODO
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def numpy_solver(self, solution: np.array) -> float:
+        """Evaluates the given observable on the solution to the linear system.
+
+        Args:
+            solution: The solution to the system as a numpy array.
 
         Returns:
             The value of the observable.

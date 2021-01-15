@@ -128,19 +128,49 @@ class HHL(LinearSolver):
         # Create the Operators Zero and One
         ZeroOp = ((I + Z) / 2)
         OneOp = ((I - Z) / 2)
+        # List of quantum circuits with post_rotation gates appended
+        qcs = []
+        # Observable gates
+        if self._post_rotation is not None and isinstance(self._post_rotation, list):
+            for circ in self._post_rotation:
+                qc_temp = QuantumCircuit(qc.num_qubits)
+                qc_temp.append(qc, list(range(qc.num_qubits)))
+                qc_temp.append(circ, list(range(self._nb)))
+                qcs.append(qc_temp)
+        elif self._post_rotation:
+            qc.append(self._post_rotation, list(range(self._nb)))
+
         # Update observable to include ancilla and rotation qubit
+        result = []
         if isinstance(observable, list):
-            result = []
-            for obs in observable:
-                if obs is None:
-                    obs = I ^ self._nb
-                new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ obs
-                result.append((~StateFn(new_observable) @ qc).eval())
+            for i, obs in enumerate(observable):
+                if isinstance(obs, list):
+                    result_temp = []
+                    for o in obs:
+                        new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ o
+                        if qcs:
+                            result_temp.append((~StateFn(new_observable) @ qcs[i]).eval())
+                        else:
+                            result_temp.append((~StateFn(new_observable) @ qc).eval())
+                    result.append(result_temp)
+                else:
+                    if obs is None:
+                        obs = I ^ self._nb
+                    new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ obs
+                    # TODO check lists are the same length
+                    if qcs:
+                        result.append((~StateFn(new_observable) @ qcs[i]).eval())
+                    else:
+                        result.append((~StateFn(new_observable) @ qc).eval())
         else:
             if observable is None:
                 observable = I ^ self._nb
             new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ observable
-            result = (~StateFn(new_observable) @ qc).eval()
+            if qcs:
+                for qc in qcs:
+                    result.append((~StateFn(new_observable) @ qc).eval())
+            else:
+                result = (~StateFn(new_observable) @ qc).eval()
 
         # TODO if state prep is probabilistic add 1/sqrt(N) to constant
         if post_processing is not None:
@@ -193,9 +223,9 @@ class HHL(LinearSolver):
             qc.append(phase_estimation.inverse(), ql[:] + qb[:] + qa[:self._matrix_circuit.num_ancillas])
         else:
             qc.append(phase_estimation.inverse(), ql[:] + qb[:])
-        # Observable gates
-        if self._post_rotation:
-            qc.append(self._post_rotation, qb[:])
+        # # Observable gates
+        # if self._post_rotation:
+        #     qc.append(self._post_rotation, qb[:])
         return qc
 
     # TODO: neg eigenvalues, general matrix, observable:List[BaseOperator],update notebook

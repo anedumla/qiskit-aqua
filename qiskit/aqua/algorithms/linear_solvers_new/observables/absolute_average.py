@@ -95,3 +95,20 @@ class AbsoluteAverage(LinearSystemObservable):
         if num_qubits is None:
             raise ValueError("Number of qubits must be defined to calculate the absolute average.")
         return np.real(np.sqrt(solution / (2 ** num_qubits)) / constant)
+
+    def numpy_solver(self, solution: np.array) -> float:
+        """Evaluates the given observable on the solution to the linear system.
+
+        Args:
+            solution: The solution to the system as a numpy array.
+
+        Returns:
+            The value of the observable.
+
+        Raises:
+            TODO
+        """
+        result = 0
+        for xi in solution:
+            result += xi
+        return np.abs(result) / len(solution)
