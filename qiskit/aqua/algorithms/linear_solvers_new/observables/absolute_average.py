@@ -18,7 +18,7 @@ import numpy as np
 from qiskit.aqua.operators import PauliSumOp
 from .linear_system_observable import LinearSystemObservable
 from qiskit import QuantumCircuit, QuantumRegister
-from qiskit.opflow import I, Z, Zero, One
+from qiskit.opflow import I, Z, Zero, One, TensoredOp
 
 
 class AbsoluteAverage(LinearSystemObservable):
@@ -39,7 +39,7 @@ class AbsoluteAverage(LinearSystemObservable):
             TODO
         """
         ZeroOp = ((I + Z) / 2)
-        return ZeroOp ^ num_qubits
+        return TensoredOp(num_qubits * [ZeroOp])
 
     def post_rotation(self, num_qubits: int) -> Union[QuantumCircuit, List[QuantumCircuit]]:
         """The observable circuit.

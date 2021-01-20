@@ -27,7 +27,7 @@ from qiskit.providers import BaseBackend
 from qiskit.aqua import QuantumInstance
 from qiskit.circuit.library.arithmetic.piecewise_chebyshev import PiecewiseChebyshev
 from qiskit.aqua.algorithms.linear_solvers_new.exact_inverse import ExactInverse
-from qiskit.opflow import Zero, One, Z, I, StateFn
+from qiskit.opflow import Zero, One, Z, I, StateFn, TensoredOp
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 
 
@@ -114,7 +114,7 @@ class HHL(LinearSolver):
         OneOp = ((I - Z) / 2)
 
         # Norm observable
-        observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ (I ^ self._nb)
+        observable = OneOp ^ TensoredOp((self._nl + self._na) * [ZeroOp]) ^ (I ^ self._nb)
         norm_2 = (~StateFn(observable) @ qc).eval()
 
         return np.real(np.sqrt(norm_2) / self._lambda_min)
@@ -147,7 +147,7 @@ class HHL(LinearSolver):
                 if isinstance(obs, list):
                     result_temp = []
                     for o in obs:
-                        new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ o
+                        new_observable = OneOp ^ TensoredOp((self._nl + self._na) * [ZeroOp]) ^ o
                         if qcs:
                             result_temp.append((~StateFn(new_observable) @ qcs[i]).eval())
                         else:
@@ -156,7 +156,7 @@ class HHL(LinearSolver):
                 else:
                     if obs is None:
                         obs = I ^ self._nb
-                    new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ obs
+                    new_observable = OneOp ^ TensoredOp((self._nl + self._na) * [ZeroOp]) ^ obs
                     # TODO check lists are the same length
                     if qcs:
                         result.append((~StateFn(new_observable) @ qcs[i]).eval())
@@ -165,7 +165,8 @@ class HHL(LinearSolver):
         else:
             if observable is None:
                 observable = I ^ self._nb
-            new_observable = OneOp ^ (ZeroOp ^ (self._nl + self._na)) ^ observable
+
+            new_observable = OneOp ^ TensoredOp((self._nl + self._na) * [ZeroOp]) ^ observable
             if qcs:
                 for qc in qcs:
                     result.append((~StateFn(new_observable) @ qc).eval())

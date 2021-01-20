@@ -17,7 +17,7 @@ import numpy as np
 from qiskit.aqua.operators import PauliSumOp
 from .linear_system_observable import LinearSystemObservable
 from qiskit import QuantumCircuit
-from qiskit.opflow import I, Z, Zero, One
+from qiskit.opflow import I, Z, Zero, One, TensoredOp
 from scipy.sparse import diags
 
 
@@ -54,7 +54,8 @@ class MatrixFunctional(LinearSystemObservable):
         observables.append(I ^ num_qubits)
         for i in range(0,num_qubits):
             j = num_qubits - i - 1
-            observables.append([(I ^ j) ^ ZeroOp ^ (OneOp ^ i), (I ^ j) ^ OneOp ^ (OneOp ^ i)])
+            observables.append([(I ^ j) ^ ZeroOp ^ TensoredOp(i * [OneOp]),
+                                (I ^ j) ^ OneOp ^ TensoredOp(i * [OneOp])])
         return observables
 
     def post_rotation(self, num_qubits: int) -> Union[QuantumCircuit, List[QuantumCircuit]]:
