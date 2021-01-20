@@ -173,10 +173,15 @@ class HHL(LinearSolver):
                 result = (~StateFn(new_observable) @ qc).eval()
 
         # TODO if state prep is probabilistic add 1/sqrt(N) to constant
-        if post_processing is not None:
-            return post_processing(result, self._nb, self._lambda_min)
+        if isinstance(result, list):
+            circuit_results = result
         else:
-            return result
+            circuit_results = [result]
+        if post_processing is not None:
+
+            return post_processing(result, self._nb, self._lambda_min), circuit_results
+        else:
+            return result, circuit_results
 
     def construct_circuit(self) -> QuantumCircuit:
         """Construct the HHL circuit.
@@ -191,14 +196,8 @@ class HHL(LinearSolver):
         ql = QuantumRegister(self._nl)  # eigenvalue evaluation qubits
         if self._na > 0:
             qa = AncillaRegister(self._na)  # ancilla qubits
-        qf = QuantumRegister(1)
-        # qf = QuantumRegister(2)  # flag qubits
+        qf = QuantumRegister(1) # flag qubits
 
-        # Initialise the classical register
-        # cr = ClassicalRegister(self._nb + self._nl + self._na)
-
-        # Create a Quantum Circuit
-        # qc = QuantumCircuit(qb, ql, qa, qf, cr)
         if self._na > 0:
             qc = QuantumCircuit(qb, ql, qa, qf)
         else:
@@ -223,23 +222,9 @@ class HHL(LinearSolver):
             qc.append(phase_estimation.inverse(), ql[:] + qb[:] + qa[:self._matrix_circuit.num_ancillas])
         else:
             qc.append(phase_estimation.inverse(), ql[:] + qb[:])
-        # # Observable gates
-        # if self._post_rotation:
-        #     qc.append(self._post_rotation, qb[:])
         return qc
 
-    # TODO: neg eigenvalues, general matrix, observable:List[BaseOperator],update notebook
-    # TODO: two signatures, one for the observable as a (List of) LinearSystemObservable(s),
-    #the other as it is now
-    """
-    solve(matrix,vector,
-          observable:Optional[Union[BaseOperator,List[BaseOperator]]],
-          post_rotation:Optional[Union[QuantumCircuit,List[QuantumCircuit]]],
-          post_processing:Optional[Callable[Union[float,List[float]],Union[float,List[float]]]])
-    post_rotation: circuit, can contain none
-        if none->
-    """
-
+    # TODO: neg eigenvalues, general matrix
     def solve(self, matrix: Union[np.ndarray, QuantumCircuit],
               vector: Union[np.ndarray, QuantumCircuit],
               observable: Optional[Union[LinearSystemObservable, BaseOperator,
@@ -363,7 +348,8 @@ class HHL(LinearSolver):
         solution.state = self.construct_circuit()
         solution.euclidean_norm = self.calculate_norm(solution.state)
         # The post-rotating gates have already been applied
-        solution.observable = self.calculate_observable(solution.state, observable, post_processing)
+        (solution.observable, solution.circuit_results) =\
+            self.calculate_observable(solution.state, observable, post_processing)
         return solution
 
 

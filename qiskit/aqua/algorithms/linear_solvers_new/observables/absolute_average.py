@@ -18,8 +18,6 @@ import numpy as np
 from qiskit.aqua.operators import PauliSumOp
 from .linear_system_observable import LinearSystemObservable
 from qiskit import QuantumCircuit, QuantumRegister
-from qiskit.providers import BaseBackend, Backend
-from qiskit.aqua import QuantumInstance
 from qiskit.opflow import I, Z, Zero, One
 
 
@@ -28,22 +26,7 @@ class AbsoluteAverage(LinearSystemObservable):
     to the linear systems.
     For a vector :math:`x=(x_1,...,x_N)`, the average is defined as
     :math:`\abs{\frac{1}{N}\sum_{i-1}^{N}x_i}`."""
-
-    def __init__(self, tolerance: Optional[float] = None,
-                 quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None) \
-            -> None:
-        """
-        Args:
-            tolerance: error tolerance.
-                Defaults to ``1e-2``.
-            quantum_instance: Quantum Instance or Backend
-        """
-        super().__init__(tolerance, quantum_instance)
-
-        self._tolerance = tolerance if tolerance is not None else 1e-2
-        # self._quantum_instance = quantum_instance
-
-    def observable(self, num_qubits: int) -> PauliSumOp:
+    def observable(self, num_qubits: int) -> Union[PauliSumOp, List[PauliSumOp]]:
         """The observable operator.
 
         Args:
@@ -58,7 +41,7 @@ class AbsoluteAverage(LinearSystemObservable):
         ZeroOp = ((I + Z) / 2)
         return ZeroOp ^ num_qubits
 
-    def post_rotation(self, num_qubits: int) -> QuantumCircuit:
+    def post_rotation(self, num_qubits: int) -> Union[QuantumCircuit, List[QuantumCircuit]]:
         """The observable circuit.
 
         Args:
@@ -78,7 +61,7 @@ class AbsoluteAverage(LinearSystemObservable):
     # TODO: can remove the list option or does it have to be as in the abstract method?.
     def post_processing(self, solution: Union[float, List[float]],
                         num_qubits: int,
-                        constant: Optional[Union[float, List[float]]] = 1) -> float:
+                        constant: Optional[float] = 1) -> float:
         """Evaluates the absolute average on the solution to the linear system.
 
         Args:
@@ -94,9 +77,12 @@ class AbsoluteAverage(LinearSystemObservable):
         """
         if num_qubits is None:
             raise ValueError("Number of qubits must be defined to calculate the absolute average.")
+        if isinstance(solution, list):
+            raise ValueError("Solution probability must be given as a single value.")
+
         return np.real(np.sqrt(solution / (2 ** num_qubits)) / constant)
 
-    def numpy_solver(self, solution: np.array) -> float:
+    def evaluate_classically(self, solution: np.array) -> float:
         """Evaluates the given observable on the solution to the linear system.
 
         Args:

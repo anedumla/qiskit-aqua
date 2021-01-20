@@ -16,6 +16,7 @@ from typing import Union, Optional, List
 import numpy as np
 
 from qiskit import QuantumCircuit
+from qiskit.result import Result
 
 from qiskit.aqua.algorithms import AlgorithmResult
 from qiskit.aqua.algorithms.linear_solvers_new.observables.linear_system_observable import LinearSystemObservable
@@ -27,9 +28,6 @@ class LinearSolverResult(AlgorithmResult):
     The linear systems algorithms return an object of the type ``LinearSystemsResult``
     with the information about the solution obtained.
 
-    ``LinearSystemsResult`` allows users to get the value of a variable by specifying an index or
-    a name as follows TODO.
-
     Examples:
         >>> TODO
 
@@ -37,13 +35,14 @@ class LinearSolverResult(AlgorithmResult):
         TODO
     """
     #TODO add stuff from hhl solve
-    def __init__(self, observable: Optional[LinearSystemObservable] = None) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         # Set the default to None, if the algorithm knows how to calculate it can override it.
         self._state = None
         self._observable = None
         self._euclidean_norm = None
+        self._circuit_results = None
 
     @property
     def observable(self) -> Union[float, List[float]]:
@@ -73,12 +72,21 @@ class LinearSolverResult(AlgorithmResult):
         if self._euclidean_norm is None or norm != self._euclidean_norm:
             self._euclidean_norm = norm
 
+    @property
+    def circuit_results(self) -> Union[List[float], List[Result]]:
+        """return the results from the circuits"""
+        return self._circuit_results
+
+    @circuit_results.setter
+    def circuit_results(self, results: Union[List[float], List[Result]]):
+        self._circuit_results = results
+
 
 class LinearSolver(ABC):
-    """An abstract class for linear system solvers in Qiskit's aqua module."""
+    """An abstract class for linear system solvers in Qiskit."""
 
     def __init__(self):
-        super().__init__()
+        pass
 
     # TODO: add repeat-until-success circuit option
     @abstractmethod

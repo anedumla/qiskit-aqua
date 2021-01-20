@@ -17,8 +17,6 @@ import numpy as np
 from qiskit.aqua.operators import PauliSumOp
 from .linear_system_observable import LinearSystemObservable
 from qiskit import QuantumCircuit
-from qiskit.providers import BaseBackend, Backend
-from qiskit.aqua import QuantumInstance
 from qiskit.opflow import I, Z, Zero, One
 from scipy.sparse import diags
 
@@ -26,27 +24,18 @@ from scipy.sparse import diags
 class MatrixFunctional(LinearSystemObservable):
     """A class for the matrix functional of the vector solution to the linear systems."""
 
-    def __init__(self, main_diag: float, off_diag: int, tolerance: Optional[float] = None,
-                 quantum_instance: Optional[Union[QuantumInstance, BaseBackend, Backend]] = None) \
-            -> None:
+    def __init__(self, main_diag: float, off_diag: int) -> None:
         """
         Args:
             main_diag: The main diagonal of the tridiagonal Toeplitz symmetric matrix to compute
              the functional.
             off_diag: The off diagonal of the tridiagonal Toeplitz symmetric matrix to compute
              the functional.
-            tolerance: error tolerance.
-                Defaults to ``1e-2``.
-            quantum_instance: Quantum Instance or Backend
         """
-        super().__init__(tolerance, quantum_instance)
-
         self._main_diag = main_diag
         self._off_diag = off_diag
-        self._tolerance = tolerance if tolerance is not None else 1e-2
-        # self._quantum_instance = quantum_instance
 
-    def observable(self, num_qubits: int) -> List[PauliSumOp]:
+    def observable(self, num_qubits: int) -> Union[PauliSumOp, List[PauliSumOp]]:
         """The observable operators.
 
         Args:
@@ -66,11 +55,9 @@ class MatrixFunctional(LinearSystemObservable):
         for i in range(0,num_qubits):
             j = num_qubits - i - 1
             observables.append([(I ^ j) ^ ZeroOp ^ (OneOp ^ i), (I ^ j) ^ OneOp ^ (OneOp ^ i)])
-            # observables.append((I ^ j) ^ (ZeroOp - OneOp) ^ (OneOp ^ i))
-
         return observables
 
-    def post_rotation(self, num_qubits: int) -> List[QuantumCircuit]:
+    def post_rotation(self, num_qubits: int) -> Union[QuantumCircuit, List[QuantumCircuit]]:
         """The observable circuits.
 
         Args:
@@ -94,10 +81,9 @@ class MatrixFunctional(LinearSystemObservable):
 
         return qcs
 
-    # TODO: can remove the list option or does it have to be as in the abstract method?.
     def post_processing(self, solution: Union[float, List[float]],
                         num_qubits: int,
-                        constant: Optional[Union[float, List[float]]] = 1) -> float:
+                        constant: Optional[float] = 1) -> float:
         """Evaluates the matrix functional on the solution to the linear system.
 
         Args:
@@ -113,17 +99,17 @@ class MatrixFunctional(LinearSystemObservable):
         """
         if num_qubits is None:
             raise ValueError("Number of qubits must be defined to calculate the absolute average.")
+        if not isinstance(solution, list):
+            raise ValueError("Solution probabilities must be given in list form.")
+
         # Calculate the value from the off-diagonal elements
         off_val = 0
         for v in solution[1::]:
-            # if np.abs(v[0]) >= np.abs(v[1]):
             off_val += (v[0]-v[1]) / (constant ** 2)
-            # else:
-            #     off_val += (v[1] - v[0]) * (2 ** num_qubits) / (constant ** 2)
         main_val = solution[0] / (constant ** 2)
         return np.real(self._main_diag * main_val + self._off_diag * off_val)
 
-    def numpy_solver(self, solution: np.array) -> float:
+    def evaluate_classically(self, solution: np.array) -> float:
         """Evaluates the given observable on the solution to the linear system.
 
         Args:
